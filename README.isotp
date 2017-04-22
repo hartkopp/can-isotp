@@ -1,0 +1,299 @@
+============================================================================
+
+README.isotp
+
+CREDITS
+
+This repository contains a rework to simplify the build of the former ISO-TP
+development repository at https://github.com/hartkopp/can-isotp-modules.
+
+The build and repository cleanup provided by Nathan L. Conrad  was merged from
+https://github.com/downwith/linux-isotp . Thanks Nathan!
+
+DOWNLOAD and BUILD
+
+1. Download repository
+
+      git clone https://github.com/hartkopp/can-isotp.git
+
+2. Build ISO-TP kernel module
+
+   Ensure dependencies are installed.  For Debian (or Ubuntu):
+
+      sudo apt-get install build-essential linux-headers-$(uname -r)
+
+   To build:
+
+      make
+
+   To install (optional):
+
+      sudo make modules_install
+
+
+3. When the PF_CAN core module is loaded ('modprobe can') the ISO-TP module
+   can be loaded into the kernel with
+
+       insmod ./net/can/can-isotp.ko
+
+   When the can-isotp.ko module has been installed into the Linux Kernels
+   modules directory (e.g. with 'make modules_install') the module should
+   load automatically when opening a CAN_ISOTP socket.
+
+----------------------------------------------------------------------------
+
+Readme file for ISO 15765-2 CAN transport protocol for protocol family CAN
+
+* This implementation is already widely used in automotive use-cases, e.g.
+* for UDS based OBD diagnosis. Although some small adaptions may be applied
+* to make it ready for Linux Mainline. Feedback is welcome.
+*
+* Current behaviour:
+*
+* - no ISO-TP specific return values are provided to the userspace
+* - when a transfer (tx) is on the run the next write() blocks until it's done
+* - no support for sending wait frames to the data source in the rx path
+
+
+  1 What is ISO-TP for CAN
+
+  2 Tools and Examples
+    2.1 isotpsend - send PDUs from stdin to CAN
+    2.2 isotprecv - print received PDU on stdout
+    2.3 isotpdump - dump CAN frames with PCI decoding (using CAN_RAW socket)
+    2.4 isotpsniffer - dump reassembled ISO-TP PDUs (using CAN_ISOTP socket)
+    2.5 isotptun - create an IP tunnel over unreliable ISO-TP PDUs
+
+  3 Remarks
+    3.1 tx_queue_len on real CAN busses (!!!)
+    3.2 State of the Socket API & Discussion
+
+1 What is ISO-TP for CAN
+------------------------
+
+  CAN Transport Protocols offer support for segmented Point-to-Point
+  communication between CAN nodes via two defined CAN Identifiers.
+  This protocol driver implements data transfers according ISO 15765-2.
+
+  CAN ISO-TP is an unreliable datagram protocol and is implemented like this.
+  For that reason error indications, like 'dropped PDUs in the receive path due
+  to wrong SequenceNumbers' are intentionally not supported.
+  See discussion in section 3.2
+
+  Code examples of how to use ISO-TP sockets can be found in the source code
+  of the available tools described below. The API is still a RFC and will be
+  described in detail later, when it's finalized.
+
+
+2 Tools and Examples
+--------------------
+
+  The source code of these tools can be found in the BerliOS SVN repository
+  http://developer.berlios.de/svn/?group_id=6475 in trunk/can-utils
+
+  For the examples below we assume a test setup with two hosts:
+
+         _______          _______ 
+        |       |        |       |
+        | Host1 |        | Host2 |
+        |       |        |       |
+        | can1  |        | can2  |
+        |_______|        |_______|
+            |                |
+     |------------------------------| CAN bus
+
+
+  2.1 isotpsend - send PDUs from stdin to CAN
+
+  isotpsend gives this help when invoked without any parameters:
+
+  Usage: isotpsend [options] <CAN interface>
+  Options: -s <can_id>  (source can_id. Use 8 digits for extended IDs)
+           -d <can_id>  (destination can_id. Use 8 digits for extended IDs)
+           -x <addr>    (extended addressing mode. Use 'any' for all addresses)
+           -p <byte>    (set and enable padding byte)
+           -P <mode>    (check padding in FC. (l)ength (c)ontent (a)ll)
+           -t <time ns> (transmit time in nanosecs)
+
+  CAN IDs and addresses are given and expected in hexadecimal values.
+  The pdu data is expected on STDIN in space separated ASCII hex values.
+  
+  Example (send ISOTP PDU from Host2 to Host1):
+  echo 11 22 33 44 55 66 DE AD BE EF | isotpsend -s 321 -d 123 can2
+
+
+  2.2 isotprecv - print received PDU on stdout
+
+  isotpsend gives this help when invoked without any parameters:
+
+  Usage: isotprecv [options] <CAN interface>
+  Options: -s <can_id>  (source can_id. Use 8 digits for extended IDs)
+           -d <can_id>  (destination can_id. Use 8 digits for extended IDs)
+           -x <addr>    (extended addressing mode.)
+           -p <byte>    (set and enable padding byte)
+           -P <mode>    (check padding in SF/CF. (l)ength (c)ontent (a)ll)
+           -b <bs>      (blocksize. 0 = off)
+           -m <val>     (STmin in ms/ns. See spec.)
+           -w <num>     (max. wait frame transmissions.)
+           -l           (loop: do not exit after pdu receiption.)
+
+  CAN IDs and addresses are given and expected in hexadecimal values.
+  The pdu data is written on STDOUT in space separated ASCII hex values.
+
+  Example (receive ISOTP PDU from Host2 on Host1):
+  isotprecv -s 123 -d 321 -l can1
+
+  In this example '-l' is set which causes isotprecv to continue listening on
+  the given connection after printing a received PDU.
+
+
+  2.3 isotpdump - dump CAN frames with PCI decoding (using CAN_RAW socket)
+
+  isotpdump gives this help when invoked without any parameters:
+
+  Usage: isotpdump [options] <CAN interface>
+  Options: -s <can_id> (source can_id. Use 8 digits for extended IDs)
+           -d <can_id> (destination can_id. Use 8 digits for extended IDs)
+           -x <addr>   (extended addressing mode. Use 'any' for all addresses)
+           -c          (color mode)
+           -a          (print data also in ASCII-chars)
+           -t <type>   (timestamp: (a)bsolute/(d)elta/(z)ero/(A)bsolute w date)
+
+  CAN IDs and addresses are given and expected in hexadecimal values.
+
+  Example (dump CAN Frames on Host1):
+  isotpdump -s 123 -d 321 -c -ta can1
+
+
+  2.4 isotpsniffer - dump reassembled ISO-TP PDUs (using CAN_ISOTP socket)
+
+  The difference to isotpdump is, that isotpsniffer opens two CAN_ISOTP
+  sockets and sets the CAN_ISOTP_LISTEN_MODE flag on both of these sockets.
+  This causes the ISO-TP protocol driver to reassemble the received data but
+  not send and flow control frames on the CAN bus.
+
+  isotpsniffer gives this help when invoked without any parameters:
+
+  Usage: isotpsniffer [options] <CAN interface>
+  Options: -s <can_id> (source can_id. Use 8 digits for extended IDs)
+           -d <can_id> (destination can_id. Use 8 digits for extended IDs)
+           -x <addr>   (extended addressing mode.)
+           -c          (color mode)
+           -t <type>   (timestamp: (a)bsolute/(d)elta/(z)ero/(A)bsolute w date)
+           -f <format> (1 = HEX, 2 = ASCII, 3 = HEX & ASCII - default: 3)
+           -h <len>    (head: print only first <len> bytes)
+
+  CAN IDs and addresses are given and expected in hexadecimal values.
+
+  Example (dump reassembled ISO-TP PDUs on Host1):
+  isotpsniffer -s 123 -d 321 -c -ta can1
+
+
+  2.5 isotptun - create an IP tunnel over unreliable ISO-TP PDUs
+
+  The ISO-TP provides an unreliable datagram protocol with PDU sizes up to
+  4095 bytes. Having Linux tunnel driver in mind creating an IP over ISO-TP
+  tunnel became obvious - so here it is ;-)
+
+  From linux/Documentation/networking/tuntap.txt:
+  TUN/TAP provides packet reception and transmission for user space programs. 
+  It can be seen as a simple Point-to-Point or Ethernet device, which,
+  instead of receiving packets from physical media, receives them from 
+  user space program and instead of sending packets via physical media 
+  writes them to the user space program. 
+
+  isotptun gives this help when invoked without any parameters:
+
+  Usage: isotptun [options] <CAN interface>
+
+  This program creates a Linux tunnel netdevice 'ctunX' and transfers the
+  ethernet frames inside ISO15765-2 (unreliable) datagrams on CAN.
+
+  Options: -s <can_id>  (source can_id. Use 8 digits for extended IDs)
+           -d <can_id>  (destination can_id. Use 8 digits for extended IDs)
+           -x <addr>    (extended addressing mode.)
+           -p <byte>    (padding byte rx path)
+           -q <byte>    (padding byte tx path)
+           -P <mode>    (check padding. (l)ength (c)ontent (a)ll)
+           -t <time ns> (transmit time in nanosecs)
+           -b <bs>      (blocksize. 0 = off)
+           -m <val>     (STmin in ms/ns. See spec.)
+           -w <num>     (max. wait frame transmissions.)
+           -h           (half duplex mode.)
+           -v           (verbose mode. Print symbols for tunneled msgs.)
+
+  CAN IDs and addresses are given and expected in hexadecimal values.
+  Use e.g. 'ifconfig ctun0 123.123.123.1 pointopoint 123.123.123.2 up'
+  to create a point-to-point IP connection on CAN.
+
+  Example:
+
+  on Host1 run as root:
+  isotptun -s 123 -d 321 -v can1 (this blocks, so use a separate terminal)
+
+  ifconfig ctun0 123.123.123.1 pointopoint 123.123.123.2 up
+
+  on Host2 run as root:
+  isotptun -s 321 -d 123 -v can2 (this blocks, so use a separate terminal)
+
+  ifconfig ctun0 123.123.123.2 pointopoint 123.123.123.1 up
+
+  Have fun (like in early modem dialup days):
+  ping 123.123.123.1
+  ssh user@123.123.123.1
+  scp user@123.123.123.1:myfile.tar.gz .
+
+  scp get's about 27kByte/s over a 500kbit/s CAN interface.
+
+
+3 Remarks
+---------
+
+  3.1 tx_queue_len on real CAN busses (!!!)
+
+  The blocksize (BS) splits the CAN frame stream into chunks that need to be
+  acknowledged on the receiver side with a flow control frame. In the case
+  the blocksize is set to zero the protocol does not wait for flow control
+  frames and sends all the CAN frames for the ISO-TP PDU in one burst.
+
+  In the case of a 4095 bytes PDU the protocol driver must create 586(!)
+  CAN frames, that are pushed into the CAN network device. This is no problem
+  with virtual CAN devices (vcan) but for real CAN devices with real bus
+  timings. Even though the frame_txtime (N_As/N_Ar) can be set in the ISO-TP
+  socket options, it is recommended to have an appropriate tx queue available
+  in the CAN driver, e.g.:
+
+    echo 4000 > /sys/class/net/can0/tx_queue_len
+
+  or with the 'ip' tool from the iproute2 package
+
+    ip link set can0 txqueuelen 4000
+
+  3.2 State of the Socket API for this Linux CAN ISO-TP implementation
+
+  Implementing transport protocol drivers in userspace on top of a CAN_RAW
+  socket is possible but has massive drawbacks for fullfilling timing
+  constrains and multi-user handling. Implementing a CAN transport protocol
+  inside the Kernel brings different requirements, as ...
+
+  - it needs to fit into a standard socket API
+  - datagram sockets should always behave similar (e.g. like UDP/IP)
+  - reduce user interaction to a minimal absolutely required level
+  - reduce user programming interface to a minimal absolutely required level
+
+  In the real world applications using unreliable datagram protocols recognize
+  problems via timeouts. So do ISO-TP applications. So the questions is:
+  What does it help for the application to know, that someone 'dropped a PDU
+  in the receive path due to wrong SequenceNumbers'?
+
+  The application does not know the (so far received) content and therefore
+  gets this completely useless information to do *what* with it?
+
+  From current applications perspective the things that have not been
+  implemented have not been required so far. So this might become the
+  discussion upon this implementation:
+
+  - what is really needed and for what use-case?
+  - how does this fit into standard networking and socket philosophy?
+
+Oliver Hartkopp (2017-04-22)
