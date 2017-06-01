@@ -1109,7 +1109,7 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	can_rx_register(dev, addr->can_addr.tp.rx_id,
 			SINGLE_MASK(addr->can_addr.tp.rx_id), isotp_rcv, sk,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,11)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,50)
 			"isotp", sk);
 #else
 			"isotp");
