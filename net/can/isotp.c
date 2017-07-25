@@ -74,7 +74,7 @@
 #include "compat.h"
 #endif
 
-#define CAN_ISOTP_VERSION "20161031"
+#define CAN_ISOTP_VERSION "20170725"
 static __initdata const char banner[] =
 	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION " alpha)\n";
 
@@ -206,7 +206,7 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 	if (!nskb)
 		return 1;
 
-	dev = dev_get_by_index(&init_net, so->ifindex);
+	dev = dev_get_by_index(sock_net(sk), so->ifindex);
 	if (!dev) {
 		kfree_skb(nskb);
 		return 1;
@@ -770,7 +770,7 @@ static void isotp_tx_timer_tsklet(unsigned long data)
 
 		DBG("next pdu to send.\n");
 
-		dev = dev_get_by_index(&init_net, so->ifindex);
+		dev = dev_get_by_index(sock_net(sk), so->ifindex);
 		if (!dev)
 			break;
 
@@ -888,7 +888,7 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (err < 0)
 		return err;
 
-	dev = dev_get_by_index(&init_net, so->ifindex);
+	dev = dev_get_by_index(sock_net(sk), so->ifindex);
 	if (!dev)
 		return -ENXIO;
 
@@ -1013,11 +1013,13 @@ static int isotp_release(struct socket *sock)
 {
 	struct sock *sk = sock->sk;
 	struct isotp_sock *so;
+	struct net *net;
 
 	if (!sk)
 		return 0;
 
 	so = isotp_sk(sk);
+	net = sock_net(sk);
 
 	/* wait for complete transmission of current pdu */
 	wait_event_interruptible(so->wait, so->tx.state == ISOTP_IDLE);
@@ -1035,9 +1037,13 @@ static int isotp_release(struct socket *sock)
 		if (so->ifindex) {
 			struct net_device *dev;
 
-			dev = dev_get_by_index(&init_net, so->ifindex);
+			dev = dev_get_by_index(net, so->ifindex);
 			if (dev) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
+				can_rx_unregister(net, dev, so->rxid,
+#else
 				can_rx_unregister(dev, so->rxid,
+#endif
 						  SINGLE_MASK(so->rxid),
 						  isotp_rcv, sk);
 				dev_put(dev);
@@ -1062,6 +1068,7 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
 	struct isotp_sock *so = isotp_sk(sk);
+	struct net *net = sock_net(sk);
 	int ifindex;
 	struct net_device *dev;
 	int err = 0;
@@ -1087,7 +1094,7 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	    addr->can_addr.tp.tx_id == so->txid)
 		goto out;
 
-	dev = dev_get_by_index(&init_net, addr->can_ifindex);
+	dev = dev_get_by_index(net, addr->can_ifindex);
 	if (!dev) {
 		err = -ENODEV;
 		goto out;
@@ -1107,7 +1114,11 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	ifindex = dev->ifindex;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
+	can_rx_register(net, dev, addr->can_addr.tp.rx_id,
+#else
 	can_rx_register(dev, addr->can_addr.tp.rx_id,
+#endif
 			SINGLE_MASK(addr->can_addr.tp.rx_id), isotp_rcv, sk,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,11)
 			"isotp", sk);
@@ -1119,9 +1130,13 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	if (so->bound) {
 		/* unregister old filter */
 		if (so->ifindex) {
-			dev = dev_get_by_index(&init_net, so->ifindex);
+			dev = dev_get_by_index(net, so->ifindex);
 			if (dev) {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
+				can_rx_unregister(net, dev, so->rxid,
+#else
 				can_rx_unregister(dev, so->rxid,
+#endif
 						  SINGLE_MASK(so->rxid),
 						  isotp_rcv, sk);
 				dev_put(dev);
@@ -1320,7 +1335,10 @@ static int isotp_notifier(struct notifier_block *nb,
 	struct isotp_sock *so = container_of(nb, struct isotp_sock, notifier);
 	struct sock *sk = &so->sk;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
+	if (!net_eq(dev_net(dev), sock_net(sk)))
+		return NOTIFY_DONE;
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,26)
 	if (dev_net(dev) != &init_net)
 		return NOTIFY_DONE;
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
@@ -1340,7 +1358,12 @@ static int isotp_notifier(struct notifier_block *nb,
 		lock_sock(sk);
 		/* remove current filters & unregister */
 		if (so->bound)
-			can_rx_unregister(dev, so->rxid, SINGLE_MASK(so->rxid),
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
+			can_rx_unregister(dev_net(dev), dev, so->rxid,
+#else
+			can_rx_unregister(dev, so->rxid,
+#endif
+					  SINGLE_MASK(so->rxid),
 					  isotp_rcv, sk);
 
 		so->ifindex = 0;
