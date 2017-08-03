@@ -1159,6 +1159,8 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr,
 
 	addr->can_family  = AF_CAN;
 	addr->can_ifindex = so->ifindex;
+	addr->can_addr.tp.rx_id = so->rxid;
+	addr->can_addr.tp.tx_id = so->txid;
 
 	*len = sizeof(*addr);
 
