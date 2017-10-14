@@ -21,7 +21,6 @@ modules:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) PROJECT_DIR=$(PWD) modules
 modules_install:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install
-	@depmod
 endif
 .PHONY: clean
 clean:
