@@ -11,7 +11,7 @@
  * - when a transfer (tx) is on the run the next write() blocks until it's done
  * - no support for sending wait frames to the data source in the rx path
  *
- * Copyright (c) 2008 Volkswagen Group Electronic Research
+ * Copyright (c) 2017 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,7 +47,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  *
- * Send feedback to <socketcan-users@lists.berlios.de>
+ * Send feedback to <linux-can@vger.kernel.org>
  *
  */
 
