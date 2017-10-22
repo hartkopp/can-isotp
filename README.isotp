@@ -12,17 +12,21 @@ https://github.com/downwith/linux-isotp . Thanks Nathan!
 
 DOWNLOAD and BUILD
 
-1. Download repository
+1. Download repository and enter the repositories root directory
 
       git clone https://github.com/hartkopp/can-isotp.git
 
+      cd can-isotp
+
 2. Build ISO-TP kernel module
 
-   Ensure dependencies are installed.  For Debian (or Ubuntu):
+   Ensure build dependencies are installed. E.g. for Debian (or Ubuntu):
 
       sudo apt-get install build-essential linux-headers-$(uname -r)
 
    To build:
+
+      (you need to be in the repositories root path)
 
       make
 
