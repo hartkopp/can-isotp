@@ -92,8 +92,8 @@ Readme file for ISO 15765-2 CAN transport protocol for protocol family CAN
 2 Tools and Examples
 --------------------
 
-  The source code of these tools can be found in the BerliOS SVN repository
-  http://developer.berlios.de/svn/?group_id=6475 in trunk/can-utils
+  The source code of these tools can be found in the can-utils repository
+  on GitHub at https://github.com/linux-can/can-utils
 
   For the examples below we assume a test setup with two hosts:
 
@@ -300,4 +300,4 @@ Readme file for ISO 15765-2 CAN transport protocol for protocol family CAN
   - what is really needed and for what use-case?
   - how does this fit into standard networking and socket philosophy?
 
-Oliver Hartkopp (2017-04-22)
+Oliver Hartkopp (2017-11-06)
