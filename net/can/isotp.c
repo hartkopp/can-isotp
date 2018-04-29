@@ -1163,8 +1163,12 @@ out:
 	return err;
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
+static int isotp_getname(struct socket *sock, struct sockaddr *uaddr, int peer)
+#else
 static int isotp_getname(struct socket *sock, struct sockaddr *uaddr,
 		       int *len, int peer)
+#endif
 {
 	struct sockaddr_can *addr = (struct sockaddr_can *)uaddr;
 	struct sock *sk = sock->sk;
@@ -1178,9 +1182,13 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr,
 	addr->can_addr.tp.rx_id = so->rxid;
 	addr->can_addr.tp.tx_id = so->txid;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
+	return sizeof(*addr);
+#else
 	*len = sizeof(*addr);
 
 	return 0;
+#endif
 }
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,32)
