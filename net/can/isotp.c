@@ -1438,44 +1438,44 @@ static int isotp_init(struct sock *sk)
 }
 
 static const struct proto_ops isotp_ops = {
-	.family        = PF_CAN,
-	.release       = isotp_release,
-	.bind          = isotp_bind,
-	.connect       = sock_no_connect,
-	.socketpair    = sock_no_socketpair,
-	.accept        = sock_no_accept,
-	.getname       = isotp_getname,
+	.family		= PF_CAN,
+	.release	= isotp_release,
+	.bind		= isotp_bind,
+	.connect	= sock_no_connect,
+	.socketpair	= sock_no_socketpair,
+	.accept		= sock_no_accept,
+	.getname	= isotp_getname,
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,18,0)
-	.poll_mask     = datagram_poll_mask,
+	.poll_mask	= datagram_poll_mask,
 #else
-	.poll          = datagram_poll,
+	.poll		= datagram_poll,
 #endif
-	.ioctl         = can_ioctl,	/* use can_ioctl() from af_can.c */
-	.listen        = sock_no_listen,
-	.shutdown      = sock_no_shutdown,
-	.setsockopt    = isotp_setsockopt,
-	.getsockopt    = isotp_getsockopt,
-	.sendmsg       = isotp_sendmsg,
-	.recvmsg       = isotp_recvmsg,
-	.mmap          = sock_no_mmap,
-	.sendpage      = sock_no_sendpage,
+	.ioctl		= can_ioctl,	/* use can_ioctl() from af_can.c */
+	.listen		= sock_no_listen,
+	.shutdown	= sock_no_shutdown,
+	.setsockopt	= isotp_setsockopt,
+	.getsockopt	= isotp_getsockopt,
+	.sendmsg	= isotp_sendmsg,
+	.recvmsg	= isotp_recvmsg,
+	.mmap		= sock_no_mmap,
+	.sendpage	= sock_no_sendpage,
 };
 
 static struct proto isotp_proto __read_mostly = {
-	.name       = "CAN_ISOTP",
-	.owner      = THIS_MODULE,
-	.obj_size   = sizeof(struct isotp_sock),
-	.init       = isotp_init,
+	.name		= "CAN_ISOTP",
+	.owner		= THIS_MODULE,
+	.obj_size	= sizeof(struct isotp_sock),
+	.init		= isotp_init,
 };
 
 static const struct can_proto isotp_can_proto = {
-	.type       = SOCK_DGRAM,
-	.protocol   = CAN_ISOTP,
+	.type		= SOCK_DGRAM,
+	.protocol	= CAN_ISOTP,
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,33)
-	.capability = -1,
+	.capability	= -1,
 #endif
-	.ops        = &isotp_ops,
-	.prot       = &isotp_proto,
+	.ops		= &isotp_ops,
+	.prot		= &isotp_proto,
 };
 
 static __init int isotp_module_init(void)
