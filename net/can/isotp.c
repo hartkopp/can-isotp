@@ -65,6 +65,7 @@
 #include <linux/skbuff.h>
 #include <linux/can.h>
 #include <linux/can/core.h>
+#include <linux/can/skb.h>
 #include <linux/can/isotp.h>
 #include <net/sock.h>
 #include <net/net_namespace.h>
@@ -176,20 +177,6 @@ static enum hrtimer_restart isotp_rx_timer_handler(struct hrtimer *hrtimer)
 	return HRTIMER_NORESTART;
 }
 
-static void isotp_skb_destructor(struct sk_buff *skb)
-{
-	sock_put(skb->sk);
-}
-
-static inline void isotp_skb_set_owner(struct sk_buff *skb, struct sock *sk)
-{
-	if (sk) {
-		sock_hold(sk);
-		skb->destructor = isotp_skb_destructor;
-		skb->sk = sk;
-	}
-}
-
 static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 {
 	struct net_device *dev;
@@ -207,7 +194,7 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 		return 1;
 	}
 	nskb->dev = dev;
-	isotp_skb_set_owner(nskb, sk);
+	can_skb_set_owner(nskb, sk);
 	ncf = (struct canfd_frame *) nskb->data;
 	skb_put(nskb, so->ll.mtu);
 
@@ -787,7 +774,7 @@ isotp_tx_burst:
 			cf->flags = so->ll.tx_flags;
 
 		skb->dev = dev;
-		isotp_skb_set_owner(skb, sk);
+		can_skb_set_owner(skb, sk);
 		can_send(skb, 1);
 
 		if (so->tx.idx >= so->tx.len) {
