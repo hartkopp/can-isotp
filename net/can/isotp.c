@@ -184,7 +184,7 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 	struct canfd_frame *ncf;
 	struct isotp_sock *so = isotp_sk(sk);
 
-	nskb = alloc_skb(so->ll.mtu, gfp_any());
+	nskb = alloc_skb(so->ll.mtu + sizeof(struct can_skb_priv), gfp_any());
 	if (!nskb)
 		return 1;
 
@@ -193,6 +193,11 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 		kfree_skb(nskb);
 		return 1;
 	}
+
+	can_skb_reserve(nskb);
+	can_skb_prv(nskb)->ifindex = dev->ifindex;
+	can_skb_prv(nskb)->skbcnt = 0;
+
 	nskb->dev = dev;
 	can_skb_set_owner(nskb, sk);
 	ncf = (struct canfd_frame *) nskb->data;
@@ -753,11 +758,16 @@ static void isotp_tx_timer_tsklet(unsigned long data)
 			break;
 
 isotp_tx_burst:
-		skb = alloc_skb(so->ll.mtu, gfp_any());
+		skb = alloc_skb(so->ll.mtu + sizeof(struct can_skb_priv),
+				gfp_any());
 		if (!skb) {
 			dev_put(dev);
 			break;
 		}
+
+		can_skb_reserve(skb);
+		can_skb_prv(skb)->ifindex = dev->ifindex;
+		can_skb_prv(skb)->skbcnt = 0;
 
 		cf = (struct canfd_frame *)skb->data;
 		skb_put(skb, so->ll.mtu);
@@ -856,12 +866,16 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 	if (!dev)
 		return -ENXIO;
 
-	skb = sock_alloc_send_skb(sk, so->ll.mtu,
+	skb = sock_alloc_send_skb(sk, so->ll.mtu + sizeof(struct can_skb_priv),
 				  msg->msg_flags & MSG_DONTWAIT, &err);
 	if (!skb) {
 		dev_put(dev);
 		return err;
 	}
+
+	can_skb_reserve(skb);
+	can_skb_prv(skb)->ifindex = dev->ifindex;
+	can_skb_prv(skb)->skbcnt = 0;
 
 	so->tx.state = ISOTP_SENDING;
 	so->tx.len = size;
