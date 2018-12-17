@@ -193,7 +193,7 @@ static void isotp_skb_reserve(struct sk_buff *skb, struct net_device *dev)
 	can_skb_reserve(skb);
 	can_skb_prv(skb)->ifindex = dev->ifindex;
 #endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,5)
 	can_skb_prv(skb)->skbcnt = 0;
 #endif
 }
