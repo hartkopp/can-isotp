@@ -80,13 +80,13 @@
 #include "compat.h"
 #endif
 
-#define CAN_ISOTP_VERSION "20170725"
+#define CAN_ISOTP_VERSION "20181217"
 static __initdata const char banner[] =
 	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION " alpha)\n";
 
-MODULE_DESCRIPTION("PF_CAN isotp 15765-2 protocol");
+MODULE_DESCRIPTION("PF_CAN isotp 15765-2:2016 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
-MODULE_AUTHOR("Oliver Hartkopp <oliver.hartkopp@volkswagen.de>");
+MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
 MODULE_ALIAS("can-proto-6");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
@@ -103,7 +103,7 @@ MODULE_ALIAS("can-proto-6");
 			 (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
 
 /*
-  ISO 15765-2:2015 supports more than 4095 byte per ISO PDU as the FF_DL can
+  ISO 15765-2:2016 supports more than 4095 byte per ISO PDU as the FF_DL can
   take full 32 bit values (4 Gbyte). We would need some good concept to handle
   this between user space and kernel space. For now increase the static buffer
   to something about 8 kbyte to be able to test this new functionality.
