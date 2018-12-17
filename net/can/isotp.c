@@ -65,6 +65,12 @@
 #include <linux/skbuff.h>
 #include <linux/can.h>
 #include <linux/can/core.h>
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+#include <linux/can/skb.h>
+#define CAN_SKBRES sizeof(struct can_skb_priv)
+#else
+#define CAN_SKBRES 0
+#endif
 #include <linux/can/isotp.h>
 #include <net/sock.h>
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,24)
@@ -181,6 +187,17 @@ static enum hrtimer_restart isotp_rx_timer_handler(struct hrtimer *hrtimer)
 	return HRTIMER_NORESTART;
 }
 
+static void isotp_skb_reserve(struct sk_buff *skb, struct net_device *dev)
+{
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,9,0)
+	can_skb_reserve(skb);
+	can_skb_prv(skb)->ifindex = dev->ifindex;
+#endif
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,1,0)
+	can_skb_prv(skb)->skbcnt = 0;
+#endif
+}
+
 static void isotp_skb_destructor(struct sk_buff *skb)
 {
 	sock_put(skb->sk);
@@ -202,7 +219,7 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 	struct canfd_frame *ncf;
 	struct isotp_sock *so = isotp_sk(sk);
 
-	nskb = alloc_skb(so->ll.mtu, gfp_any());
+	nskb = alloc_skb(so->ll.mtu + CAN_SKBRES, gfp_any());
 	if (!nskb)
 		return 1;
 
@@ -211,6 +228,7 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 		kfree_skb(nskb);
 		return 1;
 	}
+	isotp_skb_reserve(nskb, dev);
 	nskb->dev = dev;
 	isotp_skb_set_owner(nskb, sk);
 	ncf = (struct canfd_frame *) nskb->data;
@@ -775,12 +793,13 @@ static void isotp_tx_timer_tsklet(unsigned long data)
 			break;
 
 isotp_tx_burst:
-		skb = alloc_skb(so->ll.mtu, gfp_any());
+		skb = alloc_skb(so->ll.mtu + CAN_SKBRES, gfp_any());
 		if (!skb) {
 			dev_put(dev);
 			break;
 		}
 
+		isotp_skb_reserve(skb, dev);
 		cf = (struct canfd_frame *)skb->data;
 		skb_put(skb, so->ll.mtu);
 
@@ -892,12 +911,14 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (!dev)
 		return -ENXIO;
 
-	skb = sock_alloc_send_skb(sk, so->ll.mtu,
+	skb = sock_alloc_send_skb(sk, so->ll.mtu + CAN_SKBRES,
 				  msg->msg_flags & MSG_DONTWAIT, &err);
 	if (!skb) {
 		dev_put(dev);
 		return err;
 	}
+
+	isotp_skb_reserve(skb, dev);
 
 	so->tx.state = ISOTP_SENDING;
 	so->tx.len = size;
