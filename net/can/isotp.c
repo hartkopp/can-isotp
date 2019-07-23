@@ -1470,6 +1470,9 @@ static const struct proto_ops isotp_ops = {
 	.getname	= isotp_getname,
 	.poll		= datagram_poll,
 	.ioctl		= can_ioctl,	/* use can_ioctl() from af_can.c */
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0)
+	.gettstamp	= sock_gettstamp,
+#endif
 	.listen		= sock_no_listen,
 	.shutdown	= sock_no_shutdown,
 	.setsockopt	= isotp_setsockopt,
