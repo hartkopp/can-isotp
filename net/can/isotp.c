@@ -1461,6 +1461,13 @@ static int isotp_init(struct sock *sk)
 	return 0;
 }
 
+int isotp_sock_no_ioctlcmd(struct socket *sock, unsigned int cmd,
+			 unsigned long arg)
+{
+	/* no ioctls for socket layer -> hand it down to NIC layer */
+	return -ENOIOCTLCMD;
+}
+
 static const struct proto_ops isotp_ops = {
 	.family		= PF_CAN,
 	.release	= isotp_release,
@@ -1470,9 +1477,12 @@ static const struct proto_ops isotp_ops = {
 	.accept		= sock_no_accept,
 	.getname	= isotp_getname,
 	.poll		= datagram_poll,
-	.ioctl		= can_ioctl,	/* use can_ioctl() from af_can.c */
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0)
+	.ioctl		= isotp_sock_no_ioctlcmd,
 	.gettstamp	= sock_gettstamp,
+#else
+	.ioctl		= can_ioctl,	/* use can_ioctl() from af_can.c */
 #endif
 	.listen		= sock_no_listen,
 	.shutdown	= sock_no_shutdown,
