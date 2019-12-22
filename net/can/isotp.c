@@ -1385,6 +1385,7 @@ static const struct proto_ops isotp_ops = {
 	.getname	= isotp_getname,
 	.poll		= datagram_poll,
 	.ioctl		= isotp_sock_no_ioctlcmd,
+	.gettstamp	= sock_gettstamp,
 	.listen		= sock_no_listen,
 	.shutdown	= sock_no_shutdown,
 	.setsockopt	= isotp_setsockopt,
