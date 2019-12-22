@@ -1,3 +1,4 @@
+/* SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-3-Clause) */
 /*
  * isotp.c - ISO 15765-2 CAN transport protocol for protocol family CAN
  *
