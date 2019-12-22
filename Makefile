@@ -25,6 +25,7 @@ endif
 .PHONY: clean
 clean:
 	@find -type f '(' -name '.*.cmd' -o -name '*.ko' -o -name '*.o' -o \
-		-name '*.mod.c' -o -name 'modules.order' ')' -delete
+		-name '*.mod.c' -o -name '*.mod' -o -name 'modules.order' ')' \
+		-delete
 	@rm -rf .tmp_versions
 	@rm -f Module.symvers
