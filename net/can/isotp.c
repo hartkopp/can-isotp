@@ -71,7 +71,7 @@
 #include <net/sock.h>
 #include <net/net_namespace.h>
 
-#define CAN_ISOTP_VERSION "20181216"
+#define CAN_ISOTP_VERSION "20200115"
 static __initdata const char banner[] =
 	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION " alpha)\n";
 
@@ -80,8 +80,8 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
 MODULE_ALIAS("can-proto-6");
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,17,0)
-#error This module needs Kernel 4.17 or newer
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
+#error This module needs Kernel 5.4 or newer
 #endif
 
 #define DBG(fmt, args...) (printk( KERN_DEBUG "can-isotp: %s: " fmt, \
