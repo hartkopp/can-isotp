@@ -1097,7 +1097,7 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	int notify_enetdown = 0;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
-	if (len < CAN_REQUIRED_SIZE(*addr, can_ifindex))
+	if (len < CAN_REQUIRED_SIZE(struct sockaddr_can, can_addr.tp))
 #else
 	if (len < sizeof(*addr))
 #endif
