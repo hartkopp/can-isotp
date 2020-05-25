@@ -12,7 +12,7 @@
  * - when a transfer (tx) is on the run the next write() blocks until it's done
  * - no support for sending wait frames to the data source in the rx path
  *
- * Copyright (c) 2018 Volkswagen Group Electronic Research
+ * Copyright (c) 2020 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -71,7 +71,7 @@
 #include <net/sock.h>
 #include <net/net_namespace.h>
 
-#define CAN_ISOTP_VERSION "20200115"
+#define CAN_ISOTP_VERSION "20200525"
 static __initdata const char banner[] =
 	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION " alpha)\n";
 
