@@ -148,7 +148,6 @@ struct isotp_sock {
 	ktime_t tx_gap;
 	ktime_t lastrxcf_tstamp;
 	struct hrtimer rxtimer, txtimer;
-	struct tasklet_struct txtsklet;
 	struct can_isotp_options opt;
 	struct can_isotp_fc_options rxfc, txfc;
 	struct can_isotp_ll_options ll;
@@ -238,7 +237,7 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 	so->lastrxcf_tstamp = ktime_set(0,0);
 
 	/* start rx timeout watchdog */
-	hrtimer_start(&so->rxtimer, ktime_set(1,0), HRTIMER_MODE_REL);
+	hrtimer_start(&so->rxtimer, ktime_set(1,0), HRTIMER_MODE_REL_SOFT);
 	return 0;
 }
 
@@ -381,14 +380,14 @@ static int isotp_rcv_fc(struct isotp_sock *so, struct canfd_frame *cf, int ae)
 		DBG("starting txtimer for sending\n");
 		/* start cyclic timer for sending CF frame */
 		hrtimer_start(&so->txtimer, so->tx_gap,
-			      HRTIMER_MODE_REL);
+			      HRTIMER_MODE_REL_SOFT);
 		break;
 
 	case ISOTP_FC_WT:
 		DBG("starting waiting for next FC\n");
 		/* start timer to wait for next FC frame */
 		hrtimer_start(&so->txtimer, ktime_set(1,0),
-			      HRTIMER_MODE_REL);
+			      HRTIMER_MODE_REL_SOFT);
 		break;
 
 	case ISOTP_FC_OVFLW:
@@ -573,7 +572,7 @@ static int isotp_rcv_cf(struct sock *sk, struct canfd_frame *cf, int ae,
 
 		/* start rx timeout watchdog */
 		hrtimer_start(&so->rxtimer, ktime_set(1,0),
-			      HRTIMER_MODE_REL);
+			      HRTIMER_MODE_REL_SOFT);
 		return 0;
 	}
 
@@ -730,13 +729,15 @@ static void isotp_create_fframe(struct canfd_frame *cf, struct isotp_sock *so,
 	so->tx.state = ISOTP_WAIT_FIRST_FC;
 }
 
-static void isotp_tx_timer_tsklet(unsigned long data)
+static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
 {
-	struct isotp_sock *so = (struct isotp_sock *)data;
+	struct isotp_sock *so = container_of(hrtimer, struct isotp_sock,
+					     txtimer);
 	struct sock *sk = &so->sk;
 	struct sk_buff *skb;
 	struct net_device *dev;
 	struct canfd_frame *cf;
+	enum hrtimer_restart restart = HRTIMER_NORESTART;
 	int can_send_ret;
 	int ae = (so->opt.flags & CAN_ISOTP_EXTEND_ADDR)? 1:0;
 
@@ -816,9 +817,10 @@ isotp_tx_burst:
 			DBG("BS stop and wait for FC\n");
 			so->tx.state = ISOTP_WAIT_FC;
 			dev_put(dev);
-			hrtimer_start(&so->txtimer,
-				      ktime_add(ktime_get(), ktime_set(1,0)),
-				      HRTIMER_MODE_ABS);
+			hrtimer_set_expires(&so->txtimer,
+					    ktime_add(ktime_get(),
+						      ktime_set(1,0)));
+			restart = HRTIMER_RESTART;
 			break;
 		}
 
@@ -828,23 +830,16 @@ isotp_tx_burst:
 
 		/* start timer to send next data frame with correct delay */
 		dev_put(dev);
-		hrtimer_start(&so->txtimer,
-			      ktime_add(ktime_get(), so->tx_gap),
-			      HRTIMER_MODE_ABS);
+		hrtimer_set_expires(&so->txtimer,
+				    ktime_add(ktime_get(), so->tx_gap));
+		restart = HRTIMER_RESTART;
 		break;
 
 	default:
 		BUG_ON(1);
 	}
-}
 
-static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
-{
-	struct isotp_sock *so = container_of(hrtimer, struct isotp_sock,
-					     txtimer);
-	tasklet_schedule(&so->txtsklet);
-
-	return HRTIMER_NORESTART;
+	return restart;
 }
 
 static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
@@ -938,7 +933,7 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 
 		DBG("starting txtimer for fc\n");
 		/* start timeout for FC */
-		hrtimer_start(&so->txtimer, ktime_set(1,0), HRTIMER_MODE_REL);
+		hrtimer_start(&so->txtimer, ktime_set(1,0), HRTIMER_MODE_REL_SOFT);
 	}
 
 	/* send the first or only CAN frame */
@@ -1017,7 +1012,6 @@ static int isotp_release(struct socket *sock)
 
 	hrtimer_cancel(&so->txtimer);
 	hrtimer_cancel(&so->rxtimer);
-	tasklet_kill(&so->txtsklet);
 
 	/* remove current filters & unregister */
 	if (so->bound) {
@@ -1358,12 +1352,10 @@ static int isotp_init(struct sock *sk)
 	so->rx.state = ISOTP_IDLE;
 	so->tx.state = ISOTP_IDLE;
 
-	hrtimer_init(&so->rxtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrtimer_init(&so->rxtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_SOFT);
 	so->rxtimer.function = isotp_rx_timer_handler;
-	hrtimer_init(&so->txtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	hrtimer_init(&so->txtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_SOFT);
 	so->txtimer.function = isotp_tx_timer_handler;
-
-	tasklet_init(&so->txtsklet, isotp_tx_timer_tsklet, (unsigned long)so);
 
 	init_waitqueue_head(&so->wait);
 
