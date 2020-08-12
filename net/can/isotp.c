@@ -71,17 +71,17 @@
 #include <net/sock.h>
 #include <net/net_namespace.h>
 
-#define CAN_ISOTP_VERSION "20200525"
+#define CAN_ISOTP_VERSION "20200812"
 static __initdata const char banner[] =
-	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION " alpha)\n";
+	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION ")\n";
 
 MODULE_DESCRIPTION("PF_CAN isotp 15765-2:2016 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
 MODULE_ALIAS("can-proto-6");
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
-#error This module needs Kernel 5.4 or newer
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,9,0)
+#error This module needs Kernel 5.9 or newer
 #endif
 
 #define DBG(fmt, args...) (printk( KERN_DEBUG "can-isotp: %s: " fmt, \
@@ -1146,7 +1146,7 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr, int peer)
 }
 
 static int isotp_setsockopt(struct socket *sock, int level, int optname,
-			    char __user *optval, unsigned int optlen)
+			    sockptr_t optval, unsigned int optlen)
 {
 	struct sock *sk = sock->sk;
 	struct isotp_sock *so = isotp_sk(sk);
@@ -1163,7 +1163,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(struct can_isotp_options))
 			return -EINVAL;
 
-		if (copy_from_user(&so->opt, optval, optlen))
+		if (copy_from_sockptr(&so->opt, optval, optlen))
 			return -EFAULT;
 
 		/* no separate rx_ext_address is given => use ext_address */
@@ -1175,7 +1175,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(struct can_isotp_fc_options))
 			return -EINVAL;
 
-		if (copy_from_user(&so->rxfc, optval, optlen))
+		if (copy_from_sockptr(&so->rxfc, optval, optlen))
 			return -EFAULT;
 		break;
 
@@ -1183,7 +1183,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(__u32))
 			return -EINVAL;
 
-		if (copy_from_user(&so->force_tx_stmin, optval, optlen))
+		if (copy_from_sockptr(&so->force_tx_stmin, optval, optlen))
 			return -EFAULT;
 		break;
 
@@ -1191,7 +1191,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 		if (optlen != sizeof(__u32))
 			return -EINVAL;
 
-		if (copy_from_user(&so->force_rx_stmin, optval, optlen))
+		if (copy_from_sockptr(&so->force_rx_stmin, optval, optlen))
 			return -EFAULT;
 		break;
 
@@ -1201,7 +1201,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 		else {
 			struct can_isotp_ll_options ll;
 
-			if (copy_from_user(&ll, optval, optlen))
+			if (copy_from_sockptr(&ll, optval, optlen))
 				return -EFAULT;
 
 			/* check for correct ISO 11898-1 DLC data lentgh */
