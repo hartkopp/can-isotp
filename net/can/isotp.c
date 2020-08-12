@@ -2,15 +2,16 @@
 /*
  * isotp.c - ISO 15765-2 CAN transport protocol for protocol family CAN
  *
- * WARNING: This is ALPHA code for discussions and first tests that should
- *          not be used in production environments.
+ * This implementation does not provide ISO-TP specific return values to the
+ * userspace.
  *
- * In the discussion the Socket-API to the userspace or the ISO-TP socket
- * options or the return values we may change! Current behaviour:
- *
- * - no ISO-TP specific return values are provided to the userspace
+ * - RX path timeout of data reception leads to -ETIMEDOUT
+ * - RX path SN mismatch leads to -EILSEQ
+ * - TX path flowcontrol reception timeout leads to -ECOMM
  * - when a transfer (tx) is on the run the next write() blocks until it's done
- * - no support for sending wait frames to the data source in the rx path
+ * - as we have static buffers the check whether the PDU fits into the buffer
+ *   is done at FF reception time (no support for sending 'wait frames')
+ * - take care of the tx-queue-len as traffic shaping is still on the TODO list
  *
  * Copyright (c) 2020 Volkswagen Group Electronic Research
  * All rights reserved.
