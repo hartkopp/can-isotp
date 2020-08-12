@@ -162,10 +162,17 @@ static enum hrtimer_restart isotp_rx_timer_handler(struct hrtimer *hrtimer)
 {
 	struct isotp_sock *so = container_of(hrtimer, struct isotp_sock,
 					     rxtimer);
+	struct sock *sk = &so->sk;
+
 	if (so->rx.state == ISOTP_WAIT_DATA) {
 		/* we did not get new data frames in time */
 
-		/* reset tx state */
+		/* report 'connection timed out' */
+		sk->sk_err = ETIMEDOUT;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
+
+		/* reset rx state */
 		so->rx.state = ISOTP_IDLE;
 	}
 
@@ -515,7 +522,12 @@ static int isotp_rcv_cf(struct sock *sk, struct canfd_frame *cf, int ae,
 	}
 
 	if ((cf->data[ae] & 0x0F) != so->rx.sn) {
-		/* wrong sn detected - some error reporting? */
+		/* wrong sn detected - report 'illegal byte sequence' */
+		sk->sk_err = EILSEQ;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
+
+		/* reset rx state */
 		so->rx.state = ISOTP_IDLE;
 		return 1;
 	}
