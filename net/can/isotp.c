@@ -84,11 +84,6 @@ MODULE_ALIAS("can-proto-6");
 #error This module needs Kernel 5.9 or newer
 #endif
 
-#define DBG(fmt, args...) (printk( KERN_DEBUG "can-isotp: %s: " fmt, \
-				   __func__, ##args))
-#undef DBG
-#define DBG(fmt, args...)
-
 #define SINGLE_MASK(id) ((id & CAN_EFF_FLAG) ? \
 			 (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
 			 (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
@@ -168,7 +163,7 @@ static enum hrtimer_restart isotp_rx_timer_handler(struct hrtimer *hrtimer)
 	struct isotp_sock *so = container_of(hrtimer, struct isotp_sock,
 					     rxtimer);
 	if (so->rx.state == ISOTP_WAIT_DATA) {
-		DBG("we did not get new data frames in time.\n");
+		/* we did not get new data frames in time */
 
 		/* reset tx state */
 		so->rx.state = ISOTP_IDLE;
@@ -368,30 +363,24 @@ static int isotp_rcv_fc(struct isotp_sock *so, struct canfd_frame *cf, int ae)
 		so->tx.state = ISOTP_WAIT_FC;
 	}
 
-	DBG("FC frame: FS %d, BS %d, STmin 0x%02X, tx_gap %lld\n",
-	    cf->data[ae] & 0x0F & 0x0F, so->txfc.bs, so->txfc.stmin,
-	    (long long)so->tx_gap);
-
 	switch (cf->data[ae] & 0x0F) {
 
 	case ISOTP_FC_CTS:
 		so->tx.bs = 0;
 		so->tx.state = ISOTP_SENDING;
-		DBG("starting txtimer for sending\n");
 		/* start cyclic timer for sending CF frame */
 		hrtimer_start(&so->txtimer, so->tx_gap,
 			      HRTIMER_MODE_REL_SOFT);
 		break;
 
 	case ISOTP_FC_WT:
-		DBG("starting waiting for next FC\n");
 		/* start timer to wait for next FC frame */
 		hrtimer_start(&so->txtimer, ktime_set(1,0),
 			      HRTIMER_MODE_REL_SOFT);
 		break;
 
 	case ISOTP_FC_OVFLW:
-		DBG("overflow in receiver side\n");
+		/* overflow on receiver side */
 
 	default:
 		/* stop this tx job. TODO: error reporting? */
@@ -526,9 +515,7 @@ static int isotp_rcv_cf(struct sock *sk, struct canfd_frame *cf, int ae,
 	}
 
 	if ((cf->data[ae] & 0x0F) != so->rx.sn) {
-		DBG("wrong sn %d. expected %d.\n",
-		    cf->data[ae] & 0x0F, so->rx.sn);
-		/* some error reporting? */
+		/* wrong sn detected - some error reporting? */
 		so->rx.state = ISOTP_IDLE;
 		return 1;
 	}
@@ -748,7 +735,6 @@ static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
 
 		/* we did not get any flow control frame in time */
 
-		DBG("we did not get FC frame in time.\n");
 		/* report 'communication error on send' */
 		sk->sk_err = ECOMM;
 		if (!sock_flag(sk, SOCK_DEAD))
@@ -762,9 +748,6 @@ static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
 	case ISOTP_SENDING:
 
 		/* push out the next segmented pdu */
-
-		DBG("next pdu to send.\n");
-
 		dev = dev_get_by_index(sock_net(sk), so->ifindex);
 		if (!dev)
 			break;
@@ -805,7 +788,6 @@ isotp_tx_burst:
 
 		if (so->tx.idx >= so->tx.len) {
 			/* we are done */
-			DBG("we are done\n");
 			so->tx.state = ISOTP_IDLE;
 			dev_put(dev);
 			wake_up_interruptible(&so->wait);
@@ -814,7 +796,6 @@ isotp_tx_burst:
 
 		if (so->txfc.bs && so->tx.bs >= so->txfc.bs) {
 			/* stop and wait for FC */
-			DBG("BS stop and wait for FC\n");
 			so->tx.state = ISOTP_WAIT_FC;
 			dev_put(dev);
 			hrtimer_set_expires(&so->txtimer,
@@ -931,7 +912,6 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 
 		isotp_create_fframe(cf, so, ae);
 
-		DBG("starting txtimer for fc\n");
 		/* start timeout for FC */
 		hrtimer_start(&so->txtimer, ktime_set(1,0), HRTIMER_MODE_REL_SOFT);
 	}
