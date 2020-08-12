@@ -7,7 +7,10 @@
  *
  * - RX path timeout of data reception leads to -ETIMEDOUT
  * - RX path SN mismatch leads to -EILSEQ
+ * - RX path data reception with wrong padding leads to -EBADMSG
  * - TX path flowcontrol reception timeout leads to -ECOMM
+ * - TX path flowcontrol reception overflow leads to -EMSGSIZE
+ * - TX path flowcontrol reception with wrong layout/padding leads to -EBADMSG
  * - when a transfer (tx) is on the run the next write() blocks until it's done
  * - as we have static buffers the check whether the PDU fits into the buffer
  *   is done at FF reception time (no support for sending 'wait frames')
@@ -329,6 +332,8 @@ static int check_pad(struct isotp_sock *so, struct canfd_frame *cf,
 
 static int isotp_rcv_fc(struct isotp_sock *so, struct canfd_frame *cf, int ae)
 {
+	struct sock *sk = &so->sk;
+
 	if (so->tx.state != ISOTP_WAIT_FC &&
 	    so->tx.state != ISOTP_WAIT_FIRST_FC)
 		return 0;
@@ -338,6 +343,12 @@ static int isotp_rcv_fc(struct isotp_sock *so, struct canfd_frame *cf, int ae)
 	if ((cf->len < ae + FC_CONTENT_SZ) ||
 	    ((so->opt.flags & ISOTP_CHECK_PADDING) &&
 	     check_pad(so, cf, ae + FC_CONTENT_SZ, so->opt.rxpad_content))) {
+
+		/* malformed PDU - report 'not a data message' */
+		sk->sk_err = EBADMSG;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
+
 		so->tx.state = ISOTP_IDLE;
 		wake_up_interruptible(&so->wait);
 		return 1;
@@ -388,10 +399,14 @@ static int isotp_rcv_fc(struct isotp_sock *so, struct canfd_frame *cf, int ae)
 		break;
 
 	case ISOTP_FC_OVFLW:
-		/* overflow on receiver side */
+		/* overflow on receiver side - report 'message too long' */
+		sk->sk_err = EMSGSIZE;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
+		/* fall through */
 
 	default:
-		/* stop this tx job. TODO: error reporting? */
+		/* stop this tx job */
 		so->tx.state = ISOTP_IDLE;
 		wake_up_interruptible(&so->wait);
 	}
@@ -411,8 +426,13 @@ static int isotp_rcv_sf(struct sock *sk, struct canfd_frame *cf, int pcilen,
 		return 1;
 
 	if ((so->opt.flags & ISOTP_CHECK_PADDING) &&
-	    check_pad(so, cf, pcilen + len, so->opt.rxpad_content))
+	    check_pad(so, cf, pcilen + len, so->opt.rxpad_content)) {
+		/* malformed PDU - report 'not a data message' */
+		sk->sk_err = EBADMSG;
+		if (!sock_flag(sk, SOCK_DEAD))
+			sk->sk_error_report(sk);
 		return 1;
+	}
 
 	nskb = alloc_skb(len, gfp_any());
 	if (!nskb)
@@ -547,8 +567,13 @@ static int isotp_rcv_cf(struct sock *sk, struct canfd_frame *cf, int ae,
 		so->rx.state = ISOTP_IDLE;
 
 		if ((so->opt.flags & ISOTP_CHECK_PADDING) &&
-		    check_pad(so, cf, i+1, so->opt.rxpad_content))
+		    check_pad(so, cf, i+1, so->opt.rxpad_content)) {
+			/* malformed PDU - report 'not a data message' */
+			sk->sk_err = EBADMSG;
+			if (!sock_flag(sk, SOCK_DEAD))
+				sk->sk_error_report(sk);
 			return 1;
+		}
 
 		nskb = alloc_skb(so->rx.len, gfp_any());
 		if (!nskb)
