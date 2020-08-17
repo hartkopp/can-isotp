@@ -231,7 +231,7 @@ static int isotp_send_fc(struct sock *sk, int ae, u8 flowstatus)
 
 	can_send_ret = can_send(nskb, 1);
 	if (can_send_ret)
-		printk(KERN_CRIT "can-isotp: %s: can_send_ret %d\n",
+		printk(KERN_NOTICE "can-isotp: %s: can_send_ret %d\n",
 		       __func__, can_send_ret);
 
 	dev_put(dev);
@@ -821,7 +821,7 @@ isotp_tx_burst:
 
 		can_send_ret = can_send(skb, 1);
 		if (can_send_ret)
-			printk(KERN_CRIT "can-isotp: %s: can_send_ret %d\n",
+			printk(KERN_NOTICE "can-isotp: %s: can_send_ret %d\n",
 			       __func__, can_send_ret);
 
 		if (so->tx.idx >= so->tx.len) {
