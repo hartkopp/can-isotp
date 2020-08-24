@@ -55,7 +55,6 @@
  */
 
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/hrtimer.h>
@@ -70,10 +69,17 @@
 #include <linux/can/core.h>
 #include <linux/can/skb.h>
 #include <linux/can/isotp.h>
+#include <linux/slab.h>
 #include <net/sock.h>
 #include <net/net_namespace.h>
 
-#define CAN_ISOTP_VERSION "20200812"
+// REMOVE BEFORE MAINLINE POSTING
+#include <linux/version.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,9,0)
+#error This module needs Kernel 5.9 or newer
+#endif
+
+#define CAN_ISOTP_VERSION "20200824"
 static __initdata const char banner[] =
 	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION ")\n";
 
@@ -81,10 +87,6 @@ MODULE_DESCRIPTION("PF_CAN isotp 15765-2:2016 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
 MODULE_ALIAS("can-proto-6");
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,9,0)
-#error This module needs Kernel 5.9 or newer
-#endif
 
 #define SINGLE_MASK(id) ((id & CAN_EFF_FLAG) ? \
 			 (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
