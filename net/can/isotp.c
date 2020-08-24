@@ -52,8 +52,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
  * DAMAGE.
  *
- * Send feedback to <linux-can@vger.kernel.org>
- *
  */
 
 #include <linux/module.h>

@@ -4,8 +4,7 @@
  *
  * Definitions for isotp CAN sockets (ISO 15765-2:2016)
  *
- * Author: Oliver Hartkopp <oliver.hartkopp@volkswagen.de>
- * Copyright (c) 2008 Volkswagen Group Electronic Research
+ * Copyright (c) 2020 Volkswagen Group Electronic Research
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
