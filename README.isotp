@@ -128,7 +128,7 @@ Readme file for ISO 15765-2 CAN transport protocol for protocol family CAN
 
   2.2 isotprecv - print received PDU on stdout
 
-  isotpsend gives this help when invoked without any parameters:
+  isotprecv gives this help when invoked without any parameters:
 
   Usage: isotprecv [options] <CAN interface>
   Options: -s <can_id>  (source can_id. Use 8 digits for extended IDs)
