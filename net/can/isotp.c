@@ -869,6 +869,7 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 	struct net_device *dev;
 	struct canfd_frame *cf;
 	int ae = (so->opt.flags & CAN_ISOTP_EXTEND_ADDR)? 1:0;
+	int wait_tx_done = (so->opt.flags & CAN_ISOTP_WAIT_TX_DONE)? 1:0;
 	int off;
 	int err;
 
@@ -945,6 +946,9 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 
 		so->tx.state = ISOTP_IDLE;
 		wake_up_interruptible(&so->wait);
+
+		/* don't enable wait queue for a single frame transmission */
+		wait_tx_done = 0;
 	} else {
 		/* send first frame and wait for FC */
 
@@ -966,6 +970,11 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 		printk(KERN_NOTICE "can-isotp: %s: can_send_ret %d\n",
 		       __func__, err);
 		return err;
+	}
+
+	if (wait_tx_done) {
+		/* wait for complete transmission of current pdu */
+		wait_event_interruptible(so->wait, so->tx.state == ISOTP_IDLE);
 	}
 
 	return size;
