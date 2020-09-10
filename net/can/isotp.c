@@ -963,7 +963,7 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 	err = can_send(skb, 1);
 	dev_put(dev);
 	if (err) {
-		printk(KERN_CRIT "can-isotp: %s: can_send_ret %d\n",
+		printk(KERN_NOTICE "can-isotp: %s: can_send_ret %d\n",
 		       __func__, err);
 		return err;
 	}
