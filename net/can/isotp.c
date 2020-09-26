@@ -877,7 +877,7 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 		return -EADDRNOTAVAIL;
 
 	/* we do not support multiple buffers - for now */
-	if (so->tx.state != ISOTP_IDLE) {
+	if ((so->tx.state != ISOTP_IDLE) || wq_has_sleeper(&so->wait)) {
 		if (msg->msg_flags & MSG_DONTWAIT)
 			return -EAGAIN;
 
