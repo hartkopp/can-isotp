@@ -12,6 +12,7 @@
  * - TX path flowcontrol reception overflow leads to -EMSGSIZE
  * - TX path flowcontrol reception with wrong layout/padding leads to -EBADMSG
  * - when a transfer (tx) is on the run the next write() blocks until it's done
+ * - use CAN_ISOTP_WAIT_TX_DONE flag to block the caller until the PDU is sent
  * - as we have static buffers the check whether the PDU fits into the buffer
  *   is done at FF reception time (no support for sending 'wait frames')
  * - take care of the tx-queue-len as traffic shaping is still on the TODO list
@@ -79,7 +80,7 @@
 #error This module needs Kernel 5.9 or newer
 #endif
 
-#define CAN_ISOTP_VERSION "20200824"
+#define CAN_ISOTP_VERSION "20200926"
 static __initdata const char banner[] =
 	KERN_INFO "can: isotp protocol (rev " CAN_ISOTP_VERSION ")\n";
 
