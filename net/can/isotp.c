@@ -1489,8 +1489,10 @@ static const struct proto_ops isotp_ops = {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,2,0)
 	.ioctl		= isotp_sock_no_ioctlcmd,
 	.gettstamp	= sock_gettstamp,
-#else
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,39)
 	.ioctl		= can_ioctl,	/* use can_ioctl() from af_can.c */
+#else
+	.ioctl		= NULL,	/* use can_ioctl() from af_can.c */
 #endif
 	.listen		= sock_no_listen,
 	.shutdown	= sock_no_shutdown,
