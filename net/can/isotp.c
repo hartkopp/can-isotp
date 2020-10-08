@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: ((GPL-2.0 WITH Linux-syscall-note) OR BSD-3-Clause)
+// SPDX-License-Identifier: (GPL-2.0 OR BSD-3-Clause)
 /* isotp.c - ISO 15765-2 CAN transport protocol for protocol family CAN
  *
  * This implementation does not provide ISO-TP specific return values to the
@@ -79,7 +79,7 @@ MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
 MODULE_ALIAS("can-proto-6");
 
-#define SINGLE_MASK(id) ((id & CAN_EFF_FLAG) ? \
+#define SINGLE_MASK(id) (((id) & CAN_EFF_FLAG) ? \
 			 (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
 			 (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
 
@@ -106,9 +106,9 @@ MODULE_ALIAS("can-proto-6");
 #define ISOTP_CHECK_PADDING (CAN_ISOTP_CHK_PAD_LEN | CAN_ISOTP_CHK_PAD_DATA)
 
 /* Flow Status given in FC frame */
-#define ISOTP_FC_CTS	0	/* clear to send */
-#define ISOTP_FC_WT	1	/* wait */
-#define ISOTP_FC_OVFLW	2	/* overflow */
+#define ISOTP_FC_CTS 0		/* clear to send */
+#define ISOTP_FC_WT 1		/* wait */
+#define ISOTP_FC_OVFLW 2	/* overflow */
 
 enum {
 	ISOTP_IDLE = 0,
@@ -121,11 +121,11 @@ enum {
 struct tpcon {
 	int idx;
 	int len;
-	u8  state;
-	u8  bs;
-	u8  sn;
-	u8  ll_dl;
-	u8  buf[MAX_MSG_LENGTH + 1];
+	u8 state;
+	u8 bs;
+	u8 sn;
+	u8 ll_dl;
+	u8 buf[MAX_MSG_LENGTH + 1];
 };
 
 struct isotp_sock {
@@ -140,8 +140,8 @@ struct isotp_sock {
 	struct can_isotp_options opt;
 	struct can_isotp_fc_options rxfc, txfc;
 	struct can_isotp_ll_options ll;
-	__u32 force_tx_stmin;
-	__u32 force_rx_stmin;
+	u32 force_tx_stmin;
+	u32 force_rx_stmin;
 	struct tpcon rx, tx;
 	struct notifier_block notifier;
 	wait_queue_head_t wait;
@@ -245,7 +245,7 @@ static void isotp_rcv_skb(struct sk_buff *skb, struct sock *sk)
 	BUILD_BUG_ON(sizeof(skb->cb) < sizeof(struct sockaddr_can));
 
 	memset(addr, 0, sizeof(*addr));
-	addr->can_family  = AF_CAN;
+	addr->can_family = AF_CAN;
 	addr->can_ifindex = skb->dev->ifindex;
 
 	if (sock_queue_rcv_skb(sk, skb) < 0)
@@ -254,7 +254,7 @@ static void isotp_rcv_skb(struct sk_buff *skb, struct sock *sk)
 
 static u8 padlen(u8 datalen)
 {
-	const u8 plen[] = {8,  8,  8,  8,  8,  8,  8,  8,  8,	/* 0 - 8 */
+	const u8 plen[] = {8, 8, 8, 8, 8, 8, 8, 8, 8,		/* 0 - 8 */
 			   12, 12, 12, 12,			/* 9 - 12 */
 			   16, 16, 16, 16,			/* 13 - 16 */
 			   20, 20, 20, 20,			/* 17 - 20 */
@@ -291,7 +291,7 @@ static int check_optimized(struct canfd_frame *cf, int start_index)
 
 /* check padding and return 1/true when the check fails */
 static int check_pad(struct isotp_sock *so, struct canfd_frame *cf,
-		     int start_index, __u8 content)
+		     int start_index, u8 content)
 {
 	int i;
 
@@ -481,7 +481,7 @@ static int isotp_rcv_ff(struct sock *sk, struct canfd_frame *cf, int ae)
 	for (i = ae + ff_pci_sz; i < so->rx.ll_dl; i++)
 		so->rx.buf[so->rx.idx++] = cf->data[i];
 
-	/* initial setup for this pdu receiption */
+	/* initial setup for this pdu reception */
 	so->rx.sn = 1;
 	so->rx.state = ISOTP_WAIT_DATA;
 
@@ -604,7 +604,7 @@ static void isotp_rcv(struct sk_buff *skb, void *data)
 
 	cf = (struct canfd_frame *)skb->data;
 
-	/* if enabled: check receiption of my configured extended address */
+	/* if enabled: check reception of my configured extended address */
 	if (ae && cf->data[0] != so->opt.rx_ext_address)
 		return;
 
@@ -938,7 +938,7 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 		cf->flags = so->ll.tx_flags;
 
 	skb->dev = dev;
-	skb->sk  = sk;
+	skb->sk = sk;
 	err = can_send(skb, 1);
 	dev_put(dev);
 	if (err) {
@@ -963,8 +963,8 @@ static int isotp_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
 	int err = 0;
 	int noblock;
 
-	noblock =  flags & MSG_DONTWAIT;
-	flags   &= ~MSG_DONTWAIT;
+	noblock = flags & MSG_DONTWAIT;
+	flags &= ~MSG_DONTWAIT;
 
 	skb = skb_recv_datagram(sk, flags, noblock, &err);
 	if (!skb)
@@ -1031,7 +1031,7 @@ static int isotp_release(struct socket *sock)
 	}
 
 	so->ifindex = 0;
-	so->bound   = 0;
+	so->bound = 0;
 
 	sock_orphan(sk);
 	sock->sk = NULL;
@@ -1139,7 +1139,7 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr, int peer)
 	if (peer)
 		return -EOPNOTSUPP;
 
-	addr->can_family  = AF_CAN;
+	addr->can_family = AF_CAN;
 	addr->can_ifindex = so->ifindex;
 	addr->can_addr.tp.rx_id = so->rxid;
 	addr->can_addr.tp.tx_id = so->txid;
@@ -1155,8 +1155,6 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 	int ret = 0;
 
 	if (level != SOL_CAN_ISOTP)
-		return -EINVAL;
-	if (optlen < 0)
 		return -EINVAL;
 
 	switch (optname) {
@@ -1181,7 +1179,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 		break;
 
 	case CAN_ISOTP_TX_STMIN:
-		if (optlen != sizeof(__u32))
+		if (optlen != sizeof(u32))
 			return -EINVAL;
 
 		if (copy_from_sockptr(&so->force_tx_stmin, optval, optlen))
@@ -1189,7 +1187,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 		break;
 
 	case CAN_ISOTP_RX_STMIN:
-		if (optlen != sizeof(__u32))
+		if (optlen != sizeof(u32))
 			return -EINVAL;
 
 		if (copy_from_sockptr(&so->force_rx_stmin, optval, optlen))
@@ -1203,7 +1201,7 @@ static int isotp_setsockopt(struct socket *sock, int level, int optname,
 			if (copy_from_sockptr(&ll, optval, optlen))
 				return -EFAULT;
 
-			/* check for correct ISO 11898-1 DLC data lentgh */
+			/* check for correct ISO 11898-1 DLC data length */
 			if (ll.tx_dl != padlen(ll.tx_dl))
 				return -EINVAL;
 
@@ -1256,12 +1254,12 @@ static int isotp_getsockopt(struct socket *sock, int level, int optname,
 		break;
 
 	case CAN_ISOTP_TX_STMIN:
-		len = min_t(int, len, sizeof(__u32));
+		len = min_t(int, len, sizeof(u32));
 		val = &so->force_tx_stmin;
 		break;
 
 	case CAN_ISOTP_RX_STMIN:
-		len = min_t(int, len, sizeof(__u32));
+		len = min_t(int, len, sizeof(u32));
 		val = &so->force_rx_stmin;
 		break;
 
@@ -1307,7 +1305,7 @@ static int isotp_notifier(struct notifier_block *nb, unsigned long msg,
 					  isotp_rcv, sk);
 
 		so->ifindex = 0;
-		so->bound   = 0;
+		so->bound  = 0;
 		release_sock(sk);
 
 		sk->sk_err = ENODEV;
@@ -1330,23 +1328,23 @@ static int isotp_init(struct sock *sk)
 	struct isotp_sock *so = isotp_sk(sk);
 
 	so->ifindex = 0;
-	so->bound   = 0;
+	so->bound = 0;
 
-	so->opt.flags		= CAN_ISOTP_DEFAULT_FLAGS;
-	so->opt.ext_address	= CAN_ISOTP_DEFAULT_EXT_ADDRESS;
-	so->opt.rx_ext_address	= CAN_ISOTP_DEFAULT_EXT_ADDRESS;
-	so->opt.rxpad_content	= CAN_ISOTP_DEFAULT_PAD_CONTENT;
-	so->opt.txpad_content	= CAN_ISOTP_DEFAULT_PAD_CONTENT;
-	so->opt.frame_txtime	= CAN_ISOTP_DEFAULT_FRAME_TXTIME;
-	so->rxfc.bs		= CAN_ISOTP_DEFAULT_RECV_BS;
-	so->rxfc.stmin		= CAN_ISOTP_DEFAULT_RECV_STMIN;
-	so->rxfc.wftmax		= CAN_ISOTP_DEFAULT_RECV_WFTMAX;
-	so->ll.mtu		= CAN_ISOTP_DEFAULT_LL_MTU;
-	so->ll.tx_dl		= CAN_ISOTP_DEFAULT_LL_TX_DL;
-	so->ll.tx_flags		= CAN_ISOTP_DEFAULT_LL_TX_FLAGS;
+	so->opt.flags = CAN_ISOTP_DEFAULT_FLAGS;
+	so->opt.ext_address = CAN_ISOTP_DEFAULT_EXT_ADDRESS;
+	so->opt.rx_ext_address = CAN_ISOTP_DEFAULT_EXT_ADDRESS;
+	so->opt.rxpad_content = CAN_ISOTP_DEFAULT_PAD_CONTENT;
+	so->opt.txpad_content = CAN_ISOTP_DEFAULT_PAD_CONTENT;
+	so->opt.frame_txtime = CAN_ISOTP_DEFAULT_FRAME_TXTIME;
+	so->rxfc.bs = CAN_ISOTP_DEFAULT_RECV_BS;
+	so->rxfc.stmin = CAN_ISOTP_DEFAULT_RECV_STMIN;
+	so->rxfc.wftmax = CAN_ISOTP_DEFAULT_RECV_WFTMAX;
+	so->ll.mtu = CAN_ISOTP_DEFAULT_LL_MTU;
+	so->ll.tx_dl = CAN_ISOTP_DEFAULT_LL_TX_DL;
+	so->ll.tx_flags = CAN_ISOTP_DEFAULT_LL_TX_FLAGS;
 
 	/* set ll_dl for tx path to similar place as for rx */
-	so->tx.ll_dl		= so->ll.tx_dl;
+	so->tx.ll_dl = so->ll.tx_dl;
 
 	so->rx.state = ISOTP_IDLE;
 	so->tx.state = ISOTP_IDLE;
@@ -1372,38 +1370,38 @@ static int isotp_sock_no_ioctlcmd(struct socket *sock, unsigned int cmd,
 }
 
 static const struct proto_ops isotp_ops = {
-	.family		= PF_CAN,
-	.release	= isotp_release,
-	.bind		= isotp_bind,
-	.connect	= sock_no_connect,
-	.socketpair	= sock_no_socketpair,
-	.accept		= sock_no_accept,
-	.getname	= isotp_getname,
-	.poll		= datagram_poll,
-	.ioctl		= isotp_sock_no_ioctlcmd,
-	.gettstamp	= sock_gettstamp,
-	.listen		= sock_no_listen,
-	.shutdown	= sock_no_shutdown,
-	.setsockopt	= isotp_setsockopt,
-	.getsockopt	= isotp_getsockopt,
-	.sendmsg	= isotp_sendmsg,
-	.recvmsg	= isotp_recvmsg,
-	.mmap		= sock_no_mmap,
-	.sendpage	= sock_no_sendpage,
+	.family = PF_CAN,
+	.release = isotp_release,
+	.bind = isotp_bind,
+	.connect = sock_no_connect,
+	.socketpair = sock_no_socketpair,
+	.accept = sock_no_accept,
+	.getname = isotp_getname,
+	.poll = datagram_poll,
+	.ioctl = isotp_sock_no_ioctlcmd,
+	.gettstamp = sock_gettstamp,
+	.listen = sock_no_listen,
+	.shutdown = sock_no_shutdown,
+	.setsockopt = isotp_setsockopt,
+	.getsockopt = isotp_getsockopt,
+	.sendmsg = isotp_sendmsg,
+	.recvmsg = isotp_recvmsg,
+	.mmap = sock_no_mmap,
+	.sendpage = sock_no_sendpage,
 };
 
 static struct proto isotp_proto __read_mostly = {
-	.name		= "CAN_ISOTP",
-	.owner		= THIS_MODULE,
-	.obj_size	= sizeof(struct isotp_sock),
-	.init		= isotp_init,
+	.name = "CAN_ISOTP",
+	.owner = THIS_MODULE,
+	.obj_size = sizeof(struct isotp_sock),
+	.init = isotp_init,
 };
 
 static const struct can_proto isotp_can_proto = {
-	.type		= SOCK_DGRAM,
-	.protocol	= CAN_ISOTP,
-	.ops		= &isotp_ops,
-	.prot		= &isotp_proto,
+	.type = SOCK_DGRAM,
+	.protocol = CAN_ISOTP,
+	.ops = &isotp_ops,
+	.prot = &isotp_proto,
 };
 
 static __init int isotp_module_init(void)
