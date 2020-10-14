@@ -77,7 +77,7 @@
 #include "compat.h"
 #endif
 
-#define CAN_ISOTP_VERSION "20200928"
+#define CAN_ISOTP_VERSION "20201014 - out-of-tree"
 
 MODULE_DESCRIPTION("PF_CAN isotp 15765-2:2016 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -86,6 +86,10 @@ MODULE_ALIAS("can-proto-6");
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,22)
 #error This modules needs hrtimers (available since Kernel 2.6.22)
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,10,0)
+#error No need to compile this out-of-tree driver! ISO-TP is part of Linux Mainline kernel since Linux 5.10.
 #endif
 
 #define DBG(fmt, args...) (printk( KERN_DEBUG "can-isotp: %s: " fmt, \
