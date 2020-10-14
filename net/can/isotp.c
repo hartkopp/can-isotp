@@ -777,7 +777,7 @@ static void isotp_tx_timer_tsklet(unsigned long data)
 			break;
 
 isotp_tx_burst:
-		skb = alloc_skb(so->ll.mtu + CAN_SKBRES, gfp_any());
+		skb = alloc_skb(so->ll.mtu + CAN_SKBRES, GFP_ATOMIC);
 		if (!skb) {
 			dev_put(dev);
 			break;
