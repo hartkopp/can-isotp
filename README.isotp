@@ -44,6 +44,12 @@ DOWNLOAD and BUILD
    modules directory (e.g. with 'make modules_install') the module should
    load automatically when opening a CAN_ISOTP socket.
 
+   Note: on UEFI systems with Secure Boot enabled, it is not possible to insert
+   unsigned kernel modules. One option is to sign them manually. The comments
+   linked below can help you in the process:
+   https://github.com/hartkopp/can-isotp/issues/25#issuecomment-621518694
+   https://github.com/hartkopp/can-isotp/issues/25#issuecomment-627090876
+
 ----------------------------------------------------------------------------
 
 Readme file for ISO 15765-2 CAN transport protocol for protocol family CAN
