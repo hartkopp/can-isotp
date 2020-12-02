@@ -888,6 +888,14 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (!size || size > MAX_MSG_LENGTH)
 		return -EINVAL;
 
+	/* take care of a potential SF_DL ESC offset for TX_DL > 8 */
+	off = (so->tx.ll_dl > CAN_MAX_DLEN) ? 1 : 0;
+
+	/* does the given data fit into a single frame for SF_BROADCAST? */
+	if ((so->opt.flags & CAN_ISOTP_SF_BROADCAST) &&
+	    (size > so->tx.ll_dl - SF_PCI_SZ4 - ae - off))
+		return -EINVAL;
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
 	err = memcpy_from_msg(so->tx.buf, msg, size);
 #else
@@ -915,9 +923,6 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	cf = (struct canfd_frame *)skb->data;
 	skb_put(skb, so->ll.mtu);
-
-	/* take care of a potential SF_DL ESC offset for TX_DL > 8 */
-	off = (so->tx.ll_dl > CAN_MAX_DLEN) ? 1 : 0;
 
 	/* check for single frame transmission depending on TX_DL */
 	if (size <= so->tx.ll_dl - SF_PCI_SZ4 - ae - off) {
@@ -1052,7 +1057,7 @@ static int isotp_release(struct socket *sock)
 	tasklet_kill(&so->txtsklet);
 
 	/* remove current filters & unregister */
-	if (so->bound) {
+	if (so->bound && (!(so->opt.flags & CAN_ISOTP_SF_BROADCAST))) {
 		if (so->ifindex) {
 			struct net_device *dev;
 
@@ -1092,6 +1097,7 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	struct net_device *dev;
 	int err = 0;
 	int notify_enetdown = 0;
+	int do_rx_reg = 1;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
 	if (len < CAN_REQUIRED_SIZE(struct sockaddr_can, can_addr.tp))
@@ -1109,6 +1115,10 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	if (!addr->can_ifindex)
 		return -ENODEV;
+
+	/* do not register frame reception for functional addressing */
+	if (so->opt.flags & CAN_ISOTP_SF_BROADCAST)
+		do_rx_reg = 0;
 
 	lock_sock(sk);
 
@@ -1137,23 +1147,24 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	ifindex = dev->ifindex;
 
+	if (do_rx_reg)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
-	can_rx_register(net, dev, addr->can_addr.tp.rx_id,
+		can_rx_register(net, dev, addr->can_addr.tp.rx_id,
 #else
-	can_rx_register(dev, addr->can_addr.tp.rx_id,
+		can_rx_register(dev, addr->can_addr.tp.rx_id,
 #endif
-			SINGLE_MASK(addr->can_addr.tp.rx_id), isotp_rcv, sk,
+				SINGLE_MASK(addr->can_addr.tp.rx_id), isotp_rcv, sk,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,11)) || \
 	((LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,50)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))) || \
 	((LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,49)) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0))) || \
 	((LINUX_VERSION_CODE >= KERNEL_VERSION(3,16,42)) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 17, 0)))
-			"isotp", sk);
+				"isotp", sk);
 #else
-			"isotp");
+				"isotp");
 #endif
 	dev_put(dev);
 
-	if (so->bound) {
+	if (so->bound && do_rx_reg) {
 		/* unregister old filter */
 		if (so->ifindex) {
 			dev = dev_get_by_index(net, so->ifindex);
@@ -1396,7 +1407,7 @@ static int isotp_notifier(struct notifier_block *nb,
 	case NETDEV_UNREGISTER:
 		lock_sock(sk);
 		/* remove current filters & unregister */
-		if (so->bound)
+		if (so->bound && (!(so->opt.flags & CAN_ISOTP_SF_BROADCAST)))
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
 			can_rx_unregister(dev_net(dev), dev, so->rxid,
 #else
