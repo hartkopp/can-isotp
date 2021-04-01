@@ -109,6 +109,11 @@ MODULE_ALIAS("can-proto-6");
 #define ISOTP_FC_OVFLW 2	/* overflow */
 
 enum {
+    ISOTP_ERR_NO_ERROR = 0,
+    ISOTP_ERR_FC_TIMEOUT
+};
+
+enum {
 	ISOTP_IDLE = 0,
 	ISOTP_WAIT_FIRST_FC,
 	ISOTP_WAIT_FC,
@@ -120,6 +125,7 @@ struct tpcon {
 	int idx;
 	int len;
 	u8 state;
+	u8 error;
 	u8 bs;
 	u8 sn;
 	u8 ll_dl;
@@ -753,6 +759,10 @@ static enum hrtimer_restart isotp_tx_timer_handler(struct hrtimer *hrtimer)
 		if (!sock_flag(sk, SOCK_DEAD))
 			sk->sk_error_report(sk);
 
+		/* set error flag in order to consume it later in the
+		 * isotp_sendmsg function */
+		so->tx.error = ISOTP_ERR_FC_TIMEOUT;
+
 		/* reset tx state */
 		so->tx.state = ISOTP_IDLE;
 		wake_up_interruptible(&so->wait);
@@ -948,6 +958,13 @@ static int isotp_sendmsg(struct socket *sock, struct msghdr *msg, size_t size)
 	if (wait_tx_done) {
 		/* wait for complete transmission of current pdu */
 		wait_event_interruptible(so->wait, so->tx.state == ISOTP_IDLE);
+
+		/* check if an error has been raised in the timer
+		 * function handler */
+		if (so->tx.error == ISOTP_ERR_FC_TIMEOUT) {
+		    so->tx.error = ISOTP_ERR_NO_ERROR;
+		    return -ECOMM;
+		}
 	}
 
 	return size;
@@ -1348,6 +1365,9 @@ static int isotp_init(struct sock *sk)
 	so->tx.state = ISOTP_IDLE;
 
 	hrtimer_init(&so->rxtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_SOFT);
+
+    so->tx.error = ISOTP_ERR_NO_ERROR;
+    so->rx.error = ISOTP_ERR_NO_ERROR;
 	so->rxtimer.function = isotp_rx_timer_handler;
 	hrtimer_init(&so->txtimer, CLOCK_MONOTONIC, HRTIMER_MODE_REL_SOFT);
 	so->txtimer.function = isotp_tx_timer_handler;
