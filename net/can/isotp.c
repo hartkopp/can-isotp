@@ -97,6 +97,12 @@ MODULE_ALIAS("can-proto-6");
 #undef DBG
 #define DBG(fmt, args...)
 
+#define ISOTP_REQUIRED_SIZE(struct_type, member) \
+	(offsetof(typeof(struct_type), member) + \
+	sizeof(((typeof(struct_type) *)(NULL))->member))
+
+#define ISOTP_MIN_NAMELEN ISOTP_REQUIRED_SIZE(struct sockaddr_can, can_addr.tp)
+
 #define SINGLE_MASK(id) (((id) & CAN_EFF_FLAG) ? \
 			 (CAN_EFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG) : \
 			 (CAN_SFF_MASK | CAN_EFF_FLAG | CAN_RTR_FLAG))
@@ -1024,7 +1030,7 @@ static int isotp_recvmsg(struct kiocb *iocb, struct socket *sock,
 	sock_recv_timestamp(msg, sk, skb);
 
 	if (msg->msg_name) {
-		msg->msg_namelen = sizeof(struct sockaddr_can);
+		msg->msg_namelen = ISOTP_MIN_NAMELEN;
 		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
 	}
 
@@ -1099,11 +1105,7 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	int notify_enetdown = 0;
 	int do_rx_reg = 1;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,4,0)
-	if (len < CAN_REQUIRED_SIZE(struct sockaddr_can, can_addr.tp))
-#else
-	if (len < sizeof(*addr))
-#endif
+	if (len < ISOTP_MIN_NAMELEN)
 		return -EINVAL;
 
 	if (addr->can_addr.tp.tx_id & (CAN_ERR_FLAG | CAN_RTR_FLAG))
@@ -1222,16 +1224,16 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr,
 	if (peer)
 		return -EOPNOTSUPP;
 
-	memset(addr, 0, sizeof(*addr));
+	memset(addr, 0, ISOTP_MIN_NAMELEN);
 	addr->can_family = AF_CAN;
 	addr->can_ifindex = so->ifindex;
 	addr->can_addr.tp.rx_id = so->rxid;
 	addr->can_addr.tp.tx_id = so->txid;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0)
-	return sizeof(*addr);
+	return ISOTP_MIN_NAMELEN;
 #else
-	*len = sizeof(*addr);
+	*len = ISOTP_MIN_NAMELEN;
 
 	return 0;
 #endif
