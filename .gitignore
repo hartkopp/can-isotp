@@ -15,6 +15,7 @@
 .*.cmd
 *.ko
 *.o
+*.mod
 *.mod.c
 modules.order
 /.tmp_versions/
