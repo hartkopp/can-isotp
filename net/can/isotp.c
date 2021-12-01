@@ -77,7 +77,7 @@
 #include "compat.h"
 #endif
 
-#define CAN_ISOTP_VERSION "20210620 - out-of-tree"
+#define CAN_ISOTP_VERSION "20211201 - out-of-tree"
 
 MODULE_DESCRIPTION("PF_CAN isotp 15765-2:2016 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
