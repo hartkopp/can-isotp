@@ -914,7 +914,7 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	if (!size || size > MAX_MSG_LENGTH) {
 		err = -EINVAL;
-		goto err_out;
+		goto err_out_drop;
 	}
 
 	/* take care of a potential SF_DL ESC offset for TX_DL > 8 */
@@ -924,7 +924,7 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if ((so->opt.flags & CAN_ISOTP_SF_BROADCAST) &&
 	    (size > so->tx.ll_dl - SF_PCI_SZ4 - ae - off)) {
 		err = -EINVAL;
-		goto err_out;
+		goto err_out_drop;
 	}
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
@@ -933,19 +933,19 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	err = memcpy_fromiovec(so->tx.buf, msg->msg_iov, size);
 #endif
 	if (err < 0)
-		goto err_out;
+		goto err_out_drop;
 
 	dev = dev_get_by_index(sock_net(sk), so->ifindex);
 	if (!dev) {
 		err = -ENXIO;
-		goto err_out;
+		goto err_out_drop;
 	}
 
 	skb = sock_alloc_send_skb(sk, so->ll.mtu + CAN_SKBRES,
 				  msg->msg_flags & MSG_DONTWAIT, &err);
 	if (!skb) {
 		dev_put(dev);
-		goto err_out;
+		goto err_out_drop;
 	}
 
 	isotp_skb_reserve(skb, dev);
@@ -1007,7 +1007,7 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (err) {
 		printk_once(KERN_NOTICE "can-isotp: %s: can_send_ret %d\n",
 			    __func__, err);
-		goto err_out;
+		goto err_out_drop;
 	}
 
 	if (wait_tx_done) {
@@ -1020,6 +1020,9 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 	return size;
 
+err_out_drop:
+	/* drop this PDU and unlock a potential wait queue */
+	old_state = ISOTP_IDLE;
 err_out:
 	so->tx.state = old_state;
 	if (so->tx.state == ISOTP_IDLE)
