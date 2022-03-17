@@ -1148,6 +1148,7 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	struct net *net = sock_net(sk);
 	int ifindex;
 	struct net_device *dev;
+	canid_t tx_id, rx_id;
 	int err = 0;
 	int notify_enetdown = 0;
 	int do_rx_reg = 1;
@@ -1155,8 +1156,18 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 	if (len < ISOTP_MIN_NAMELEN)
 		return -EINVAL;
 
-	if (addr->can_addr.tp.tx_id & (CAN_ERR_FLAG | CAN_RTR_FLAG))
-		return -EADDRNOTAVAIL;
+	/* sanitize tx/rx CAN identifiers */
+	tx_id = addr->can_addr.tp.tx_id;
+	if (tx_id & CAN_EFF_FLAG)
+		tx_id &= (CAN_EFF_FLAG | CAN_EFF_MASK);
+	else
+		tx_id &= CAN_SFF_MASK;
+
+	rx_id = addr->can_addr.tp.rx_id;
+	if (rx_id & CAN_EFF_FLAG)
+		rx_id &= (CAN_EFF_FLAG | CAN_EFF_MASK);
+	else
+		rx_id &= CAN_SFF_MASK;
 
 	if (!addr->can_ifindex)
 		return -ENODEV;
@@ -1168,21 +1179,13 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 		do_rx_reg = 0;
 
 	/* do not validate rx address for functional addressing */
-	if (do_rx_reg) {
-		if (addr->can_addr.tp.rx_id == addr->can_addr.tp.tx_id) {
-			err = -EADDRNOTAVAIL;
-			goto out;
-		}
-
-		if (addr->can_addr.tp.rx_id & (CAN_ERR_FLAG | CAN_RTR_FLAG)) {
-			err = -EADDRNOTAVAIL;
-			goto out;
-		}
+	if (do_rx_reg && rx_id == tx_id) {
+		err = -EADDRNOTAVAIL;
+		goto out;
 	}
 
 	if (so->bound && addr->can_ifindex == so->ifindex &&
-	    addr->can_addr.tp.rx_id == so->rxid &&
-	    addr->can_addr.tp.tx_id == so->txid)
+	    rx_id == so->rxid && tx_id == so->txid)
 		goto out;
 
 	dev = dev_get_by_index(net, addr->can_ifindex);
@@ -1207,11 +1210,11 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	if (do_rx_reg)
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
-		can_rx_register(net, dev, addr->can_addr.tp.rx_id,
+		can_rx_register(net, dev, rx_id,
 #else
-		can_rx_register(dev, addr->can_addr.tp.rx_id,
+		can_rx_register(dev, rx_id,
 #endif
-				SINGLE_MASK(addr->can_addr.tp.rx_id), isotp_rcv, sk,
+				SINGLE_MASK(rx_id), isotp_rcv, sk,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4,9,11)) || \
 	((LINUX_VERSION_CODE >= KERNEL_VERSION(4,4,50)) && (LINUX_VERSION_CODE < KERNEL_VERSION(4, 5, 0))) || \
 	((LINUX_VERSION_CODE >= KERNEL_VERSION(3,18,49)) && (LINUX_VERSION_CODE < KERNEL_VERSION(3, 19, 0))) || \
@@ -1241,8 +1244,8 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	/* switch to new settings */
 	so->ifindex = ifindex;
-	so->rxid = addr->can_addr.tp.rx_id;
-	so->txid = addr->can_addr.tp.tx_id;
+	so->rxid = rx_id;
+	so->txid = tx_id;
 	so->bound = 1;
 
 out:
