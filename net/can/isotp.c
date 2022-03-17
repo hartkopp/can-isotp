@@ -1042,18 +1042,19 @@ static int isotp_recvmsg(struct kiocb *iocb, struct socket *sock,
 	struct sock *sk = sock->sk;
 	struct sk_buff *skb;
 	struct isotp_sock *so = isotp_sk(sk);
-	int err = 0;
-	int noblock;
+	int noblock = flags & MSG_DONTWAIT;
+	int ret = 0;
 
-	noblock = flags & MSG_DONTWAIT;
-	flags &= ~MSG_DONTWAIT;
+	if (flags & ~(MSG_DONTWAIT | MSG_TRUNC))
+		return -EINVAL;
 
 	if (!so->bound)
 		return -EADDRNOTAVAIL;
 
-	skb = skb_recv_datagram(sk, flags, noblock, &err);
+	flags &= ~MSG_DONTWAIT;
+	skb = skb_recv_datagram(sk, flags, noblock, &ret);
 	if (!skb)
-		return err;
+		return ret;
 
 	if (size < skb->len)
 		msg->msg_flags |= MSG_TRUNC;
@@ -1061,14 +1062,12 @@ static int isotp_recvmsg(struct kiocb *iocb, struct socket *sock,
 		size = skb->len;
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,19,0)
-	err = memcpy_to_msg(msg, skb->data, size);
+	ret = memcpy_to_msg(msg, skb->data, size);
 #else
-	err = memcpy_toiovec(msg->msg_iov, skb->data, size);
+	ret = memcpy_toiovec(msg->msg_iov, skb->data, size);
 #endif
-	if (err < 0) {
-		skb_free_datagram(sk, skb);
-		return err;
-	}
+	if (ret < 0)
+		goto out_err;
 
 	sock_recv_timestamp(msg, sk, skb);
 
@@ -1077,9 +1076,13 @@ static int isotp_recvmsg(struct kiocb *iocb, struct socket *sock,
 		memcpy(msg->msg_name, skb->cb, msg->msg_namelen);
 	}
 
+	/* set length of return value */
+	ret = (flags & MSG_TRUNC) ? skb->len : size;
+
+out_err:
 	skb_free_datagram(sk, skb);
 
-	return size;
+	return ret;
 }
 
 static int isotp_release(struct socket *sock)
