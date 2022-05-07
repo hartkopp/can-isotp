@@ -1190,6 +1190,11 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 
 	lock_sock(sk);
 
+	if (so->bound) {
+		err = -EINVAL;
+		goto out;
+	}
+
 	/* do not register frame reception for functional addressing */
 	if (so->opt.flags & CAN_ISOTP_SF_BROADCAST)
 		do_rx_reg = 0;
@@ -1199,10 +1204,6 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 		err = -EADDRNOTAVAIL;
 		goto out;
 	}
-
-	if (so->bound && addr->can_ifindex == so->ifindex &&
-	    rx_id == so->rxid && tx_id == so->txid)
-		goto out;
 
 	dev = dev_get_by_index(net, addr->can_ifindex);
 	if (!dev) {
@@ -1240,23 +1241,6 @@ static int isotp_bind(struct socket *sock, struct sockaddr *uaddr, int len)
 				"isotp");
 #endif
 	dev_put(dev);
-
-	if (so->bound && do_rx_reg) {
-		/* unregister old filter */
-		if (so->ifindex) {
-			dev = dev_get_by_index(net, so->ifindex);
-			if (dev) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4,12,0)
-				can_rx_unregister(net, dev, so->rxid,
-#else
-				can_rx_unregister(dev, so->rxid,
-#endif
-						  SINGLE_MASK(so->rxid),
-						  isotp_rcv, sk);
-				dev_put(dev);
-			}
-		}
-	}
 
 	/* switch to new settings */
 	so->ifindex = ifindex;
