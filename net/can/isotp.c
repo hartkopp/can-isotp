@@ -893,6 +893,7 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	struct canfd_frame *cf;
 	int ae = (so->opt.flags & CAN_ISOTP_EXTEND_ADDR) ? 1 : 0;
 	int wait_tx_done = (so->opt.flags & CAN_ISOTP_WAIT_TX_DONE) ? 1 : 0;
+	s64 hrtimer_sec = 0;
 	int off;
 	int err;
 
@@ -995,7 +996,9 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 
 		DBG("starting txtimer for fc\n");
 		/* start timeout for FC */
-		hrtimer_start(&so->txtimer, ktime_set(1,0), HRTIMER_MODE_REL);
+		hrtimer_sec = 1;
+		hrtimer_start(&so->txtimer, ktime_set(hrtimer_sec,0),
+			      HRTIMER_MODE_REL);
 	}
 
 	/* send the first or only CAN frame */
@@ -1008,6 +1011,11 @@ static int isotp_sendmsg(struct kiocb *iocb, struct socket *sock,
 	if (err) {
 		printk_once(KERN_NOTICE "can-isotp: %s: can_send_ret %d\n",
 			    __func__, err);
+
+		/* no transmission -> no timeout monitoring */
+		if (hrtimer_sec)
+			hrtimer_cancel(&so->txtimer);
+
 		goto err_out_drop;
 	}
 
