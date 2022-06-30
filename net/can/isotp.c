@@ -1128,7 +1128,11 @@ static int isotp_recvmsg(struct socket *sock, struct msghdr *msg, size_t size,
 	if (!so->bound)
 		return -EADDRNOTAVAIL;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,18,6)
+	skb = skb_recv_datagram(sk, flags, flags, &ret);
+#else
 	skb = skb_recv_datagram(sk, flags, &ret);
+#endif
 	if (!skb)
 		return ret;
 
