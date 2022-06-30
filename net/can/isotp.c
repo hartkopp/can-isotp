@@ -84,6 +84,10 @@
 #undef CAN_ISOTP_DEFAULT_FRAME_TXTIME
 #define CAN_ISOTP_DEFAULT_FRAME_TXTIME 50000
 
+#ifndef sk_error_report
+void sk_error_report(struct sock *sk) { sk->sk_error_report(sk); }
+#endif
+
 MODULE_DESCRIPTION("PF_CAN isotp 15765-2:2016 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
 MODULE_AUTHOR("Oliver Hartkopp <socketcan@hartkopp.net>");
