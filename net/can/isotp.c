@@ -84,6 +84,10 @@
 #undef CAN_ISOTP_DEFAULT_FRAME_TXTIME
 #define CAN_ISOTP_DEFAULT_FRAME_TXTIME 50000
 
+#ifndef CAN_ISOTP_FRAME_TXTIME_ZERO
+#define CAN_ISOTP_FRAME_TXTIME_ZERO 0xFFFFFFFF
+#endif
+
 #ifndef sk_error_report
 void sk_error_report(struct sock *sk) { sk->sk_error_report(sk); }
 #endif
