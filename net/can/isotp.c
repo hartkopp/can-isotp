@@ -53,6 +53,7 @@
  */
 
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/spinlock.h>
@@ -71,6 +72,10 @@
 #include <linux/slab.h>
 #include <net/sock.h>
 #include <net/net_namespace.h>
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,4,0)
+#error This code needs at least Linux 5.4 to compile
+#endif
 
 MODULE_DESCRIPTION("PF_CAN isotp 15765-2:2016 protocol");
 MODULE_LICENSE("Dual BSD/GPL");
@@ -1329,8 +1334,14 @@ static int isotp_getname(struct socket *sock, struct sockaddr *uaddr, int peer)
 	return ISOTP_MIN_NAMELEN;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,9,0)
+#define copy_from_sockptr copy_from_user
+static int isotp_setsockopt_locked(struct socket *sock, int level, int optname,
+			    char __user *optval, unsigned int optlen)
+#else
 static int isotp_setsockopt_locked(struct socket *sock, int level, int optname,
 			    sockptr_t optval, unsigned int optlen)
+#endif
 {
 	struct sock *sk = sock->sk;
 	struct isotp_sock *so = isotp_sk(sk);
@@ -1427,9 +1438,13 @@ static int isotp_setsockopt_locked(struct socket *sock, int level, int optname,
 	return ret;
 }
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5,9,0)
+static int isotp_setsockopt(struct socket *sock, int level, int optname,
+			    char __user *optval, unsigned int optlen)
+#else
 static int isotp_setsockopt(struct socket *sock, int level, int optname,
 			    sockptr_t optval, unsigned int optlen)
-
+#endif
 {
 	struct sock *sk = sock->sk;
 	int ret;
