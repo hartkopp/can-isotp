@@ -1662,7 +1662,9 @@ static const struct proto_ops isotp_ops = {
 	.sendmsg = isotp_sendmsg,
 	.recvmsg = isotp_recvmsg,
 	.mmap = sock_no_mmap,
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6,5,0)
 	.sendpage = sock_no_sendpage,
+#endif
 };
 
 static struct proto isotp_proto __read_mostly = {
